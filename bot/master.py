@@ -4,18 +4,19 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Command
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from database import Base, engine, User, ProductQuery, save_product_query, get_product_info, save_subscription, remove_subscription
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from database import engine, ProductQuery, save_product_query, get_product_info, save_subscription
 from sqlalchemy.orm import sessionmaker
 import asyncio
 
-# Настройка бота и диспетчера
+# Настройка бота и диспетчера без MemoryStorage
 bot = Bot(token='YOUR_BOT_TOKEN')
 dp = Dispatcher(bot, storage=MemoryStorage())
 
 # Создание сессии для работы с базой данных
 Session = sessionmaker(bind=engine)
 
-# Определение состояний для FSM
+# Опреде��ение состояний для FSM
 
 
 class ProductQueryForm(StatesGroup):
@@ -45,8 +46,6 @@ async def process_callback_button1(callback_query: types.CallbackQuery):
         await bot.send_message(callback_query.from_user.id, "Введите артикул товара:")
     elif callback_query.data == 'stop_notifications':
         user_id = callback_query.from_user.id
-        # Здесь нужно получить код товара, на который подписан пользователь
-        # Это может быть реализовано через сохранение кода товара в состоянии FSM или через запрос к базе данных
         product_code = "example_product_code"  # Замените на реальный код товара
         remove_subscription(user_id, product_code)
         await bot.send_message(user_id, "Уведомления остановлены.")
