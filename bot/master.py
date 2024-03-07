@@ -4,8 +4,9 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Command
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from database import Base, engine, User, ProductQuery, save_product_query, get_product_info
+from database import Base, engine, User, ProductQuery, save_product_query, get_product_info, save_subscription, remove_subscription
 from sqlalchemy.orm import sessionmaker
+import asyncio
 
 # Настройка бота и диспетчера
 bot = Bot(token='YOUR_BOT_TOKEN')
@@ -43,11 +44,19 @@ async def process_callback_button1(callback_query: types.CallbackQuery):
         await ProductQueryForm.product_code.set()
         await bot.send_message(callback_query.from_user.id, "Введите артикул товара:")
     elif callback_query.data == 'stop_notifications':
-        # Реализация логики остановки уведомлений
-        pass
+        user_id = callback_query.from_user.id
+        # Здесь нужно получить код товара, на который подписан пользователь
+        # Это может быть реализовано через сохранение кода товара в состоянии FSM или через запрос к базе данных
+        product_code = "example_product_code"  # Замените на реальный код товара
+        remove_subscription(user_id, product_code)
+        await bot.send_message(user_id, "Уведомления остановлены.")
     elif callback_query.data == 'get_db_info':
-        # Реализация логики получения информации из БД
-        pass
+        records = get_last_5_records()
+        message = "Последние 5 записей:\n"
+        for record in records:
+            message += f"ID: {record.id}, Пользователь: {record.user_id}, Артикул: {
+                record.product_code}, Время запроса: {record.query_time}\n"
+        await bot.send_message(callback_query.from_user.id, message)
 
 # Обработчик ввода артикула товара
 
@@ -62,7 +71,42 @@ async def process_product_code(message: types.Message, state: FSMContext):
     await bot.send_message(user_id, product_info)
     await state.finish()
 
+# Обработчик подписки
+
+
+@dp.callback_query_handler(lambda c: c.data == 'subscribe')
+async def subscribe_handler(callback_query: types.CallbackQuery):
+    user_id = callback_query.from_user.id
+    product_code = callback_query.message.text.split('\n')[1].split(': ')[1]
+    save_subscription(user_id, product_code)
+    await bot.send_message(user_id, "Вы успешно подписались на уведомления.")
+
+# Функция для отправки уведомлений
+
+
+async def send_notifications():
+    while True:
+        session = Session()
+        subscriptions = session.query(Subscription).all()
+        for subscription in subscriptions:
+            product_info = get_product_info(subscription.product_code)
+            await bot.send_message(subscription.user_id, product_info)
+        await asyncio.sleep(300)  # 5 минут
+
+# Функция для получения последних 5 записей из БД
+
+
+def get_last_5_records():
+    session = Session()
+    records = session.query(ProductQuery).order_by(
+        ProductQuery.query_time.desc()).limit(5).all()
+    session.close()
+    return records
+
+
 # Запуск бота
 if __name__ == '__main__':
     from aiogram import executor
+    from asyncio import create_task
+    create_task(send_notifications())
     executor.start_polling(dp, skip_updates=True)

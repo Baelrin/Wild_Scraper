@@ -12,6 +12,9 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String)
 
+    queries = relationship('ProductQuery', back_populates='user')
+    subscriptions = relationship('Subscription', back_populates='user')
+
 
 class ProductQuery(Base):
     __tablename__ = 'product_queries'
@@ -20,7 +23,7 @@ class ProductQuery(Base):
     product_code = Column(String)
     query_time = Column(DateTime)
 
-    user = relationship('User')
+    user = relationship('User', back_populates='queries')
 
 
 class Product(Base):
@@ -33,6 +36,16 @@ class Product(Base):
     quantity = Column(Integer)
 
     queries = relationship('ProductQuery', back_populates='product')
+
+
+class Subscription(Base):
+    __tablename__ = 'subscriptions'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    product_code = Column(String)
+    subscription_time = Column(DateTime)
+
+    user = relationship('User', back_populates='subscriptions')
 
 
 # Замените 'postgresql://user:password@localhost/dbname' на ваши реальные данные для подключения к базе данных
@@ -62,3 +75,12 @@ def get_product_info(product_code):
         return product_info
     else:
         return "Товар не найден."
+
+
+def save_subscription(user_id, product_code):
+    session = Session()
+    subscription = Subscription(
+        user_id=user_id, product_code=product_code, subscription_time=datetime.now())
+    session.add(subscription)
+    session.commit()
+    session.close()
